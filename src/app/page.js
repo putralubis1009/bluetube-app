@@ -133,17 +133,21 @@ function HomeContent() {
       )}{/* FOOTER */}
 <footer className="mt-20 py-10 border-t border-white/10 text-center">
   <div className="flex flex-col items-center gap-3">
-    {/* Pastikan file logo.png ada di folder 'public' */}
-    <img src="/logo.png" alt="Logo Bluetube" className="h-12 w-auto opacity-80 hover:opacity-100 transition-opacity" />
+  {/* Pastikan file logo ada di folder public/images */}
+  <img 
+    src="/Gemini_Generated_Image_weti0iweti0iweti.webp" 
+    alt="Logo Bluetube" 
+    className="h-24 w-auto opacity-90 hover:opacity-100 transition-opacity" 
+  />
     
-    <p className="text-slate-500 text-sm font-['Poppins']">
-      &copy; {new Date().getFullYear()} Bluetube. All rights reserved.
-    </p>
+  <p className="text-slate-500 text-sm font-['Poppins']">
+    &copy; {new Date().getFullYear()} Bluetube. All rights reserved.
+  </p>
     
-    <p className="text-slate-600 text-xs">
-      Build with BLUETUBEID 
-    </p>
-  </div>
+  <p className="text-slate-600 text-xs">
+    BLUETUBEID 
+  </p>
+</div>
 </footer>
     </main>
   );
