@@ -6,10 +6,10 @@ import { videoData } from "../database";
 
 function HlsVideoPlayer({ src }) {
   const videoRef = useRef(null);
-  const hlsRef = useRef(null); // Gunakan ref untuk menyimpan instance HLS
+  const hlsRef = useRef(null);
+  const clickTimeoutRef = useRef(null); // Tambahan ref untuk timer ketukan
   const [levels, setLevels] = useState([]);
   const [currentLevel, setCurrentLevel] = useState(-1);
-  const [lastTap, setLastTap] = useState(0);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -35,24 +35,37 @@ function HlsVideoPlayer({ src }) {
 
     return () => { 
       if (hlsRef.current) hlsRef.current.destroy(); 
+      // Bersihkan timer jika komponen ditutup
+      if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
     };
   }, [src]);
 
-  // Handle Play/Pause, Skip/Rewind
+  // Handle Play/Pause, Skip/Rewind yang diperbarui
   const handleContainerClick = (e) => {
-    const now = Date.now();
-    if (now - lastTap < 300) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      videoRef.current.currentTime += (x < rect.width / 2) ? -5 : 5;
-      setLastTap(0);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const isLeft = clickX < rect.width / 2;
+
+    if (clickTimeoutRef.current) {
+      // Jika sudah ada timer, berarti ini ketukan kedua (Double Tap)
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+      
+      if (videoRef.current) {
+        videoRef.current.currentTime += isLeft ? -5 : 5;
+      }
     } else {
-      setLastTap(now);
-      videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause();
+      // Jika belum ada, mulai timer 250 milidetik untuk menunggu ketukan kedua
+      clickTimeoutRef.current = setTimeout(() => {
+        // Jika tidak ada ketukan kedua, jalankan Single Tap (Play/Pause)
+        if (videoRef.current) {
+          videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause();
+        }
+        clickTimeoutRef.current = null;
+      }, 250);
     }
   };
 
-  // Handle Change Quality
   const changeQuality = (index) => {
     setCurrentLevel(index);
     if (hlsRef.current) {
@@ -62,7 +75,15 @@ function HlsVideoPlayer({ src }) {
 
   return (
     <div className="relative group w-full h-full">
-      <div className="absolute inset-0 z-10 cursor-pointer" onClick={handleContainerClick} />
+      {/* 
+        REVISI CSS: 'inset-0' diganti menjadi 'top-0 left-0 right-0 bottom-16' 
+        Area klik sekarang menyisakan ruang 64px di bagian bawah agar tombol 
+        fullscreen, play, dan volume bawaan video tidak terhalang.
+      */}
+      <div 
+        className="absolute top-0 left-0 right-0 bottom-16 z-10 cursor-pointer" 
+        onClick={handleContainerClick} 
+      />
       
       <video 
         ref={videoRef} 
