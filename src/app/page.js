@@ -25,6 +25,7 @@ function HomeContent() {
     { id: 'SELINGKUH', label: 'SELINGKUH' },
     { id: 'ASIA', label: 'ASIA' },
     { id: 'TOBRUT', label: 'TOBRUT' },
+    { id: 'BOCIL', label: 'BOCIL' },
   ];
 
   // Filter video berdasarkan genre dan pencarian
