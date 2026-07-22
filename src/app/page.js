@@ -10,7 +10,14 @@ function HomeContent() {
   const kataKunci = searchParams.get('cari') || ""; 
   const [activeGenre, setActiveGenre] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10; // Jumlah item per halaman
+  const itemsPerPage = 10;
+
+  // --- STATE UNTUK LOCK & MODAL PASSWORD ---
+  const [isBocilUnlocked, setIsBocilUnlocked] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const genres = [
     { id: 'all', label: 'Semua Kategori' },
@@ -25,11 +32,16 @@ function HomeContent() {
     { id: 'SELINGKUH', label: 'SELINGKUH' },
     { id: 'ASIA', label: 'ASIA' },
     { id: 'TOBRUT', label: 'TOBRUT' },
-    { id: 'BOCIL', label: 'BOCIL' },
+    { id: 'BOCIL', label: 'BOCIL 🔒' }, // Ikon gembok indikator
   ];
 
-  // Filter video berdasarkan genre dan pencarian
+  // 1. FILTER VIDEO: Sembunyikan 'BOCIL' dari halaman utama (Semua Kategori)
   const filteredVideos = videoData.filter(video => {
+    // Jika di "Semua Kategori", sembunyikan genre BOCIL
+    if (activeGenre === 'all' && video.genre === 'BOCIL') {
+      return false;
+    }
+
     const cocokKategori = activeGenre === 'all' || video.genre === activeGenre;
     const cocokKataKunci = video.title.toLowerCase().includes(kataKunci.toLowerCase());
     return cocokKategori && cocokKataKunci;
@@ -46,6 +58,47 @@ function HomeContent() {
   const currentVideos = filteredVideos.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredVideos.length / itemsPerPage);
 
+  // 2. LOGIKA KLIK KATEGORI
+  const handleGenreClick = (genreId) => {
+    if (genreId === 'BOCIL' && !isBocilUnlocked) {
+      // Tampilkan Modal Password jika belum unlocked
+      setShowPasswordModal(true);
+      setErrorMessage('');
+      setPasswordInput('');
+    } else {
+      setActiveGenre(genreId);
+    }
+  };
+
+  // 3. LOGIKA VERIFIKASI PASSWORD
+  const handleVerifyPassword = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMessage('');
+
+    try {
+      const response = await fetch('/api/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: passwordInput }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setIsBocilUnlocked(true);
+        setActiveGenre('BOCIL');
+        setShowPasswordModal(false);
+      } else {
+        setErrorMessage(data.message || 'Password salah!');
+      }
+    } catch (error) {
+      setErrorMessage('Terjadi kesalahan koneksi.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handlePlayVideo = (video) => {
     const query = new URLSearchParams({
       title: video.title,
@@ -58,12 +111,12 @@ function HomeContent() {
 
   return (
     <main>
-      {/* Genre Container dengan Flex Wrap */}
+      {/* Genre Container */}
       <div className="flex flex-wrap gap-2.5 mb-6">
         {genres.map((genre) => (
           <button
             key={genre.id}
-            onClick={() => setActiveGenre(genre.id)}
+            onClick={() => handleGenreClick(genre.id)}
             className={`px-4 md:px-5 py-2 rounded-full whitespace-nowrap text-sm font-['Poppins'] transition-all duration-300 border ${
               activeGenre === genre.id 
                 ? 'bg-[#00f0ff] text-[#03050a] font-semibold border-[#00f0ff]' 
@@ -131,25 +184,81 @@ function HomeContent() {
         <div className="text-center py-20 bg-[#0a1128]/20 rounded-xl border border-white/5">
           <p className="text-slate-400">Video tidak ditemukan.</p>
         </div>
-      )}{/* FOOTER */}
-<footer className="mt-20 py-10 border-t border-white/10 text-center">
-  <div className="flex flex-col items-center gap-3">
-  {/* Pastikan file logo ada di folder public/images */}
-  <img 
-    src="/Gemini_Generated_Image_weti0iweti0iweti.webp" 
-    alt="Logo Bluetube" 
-    className="h-24 w-auto opacity-90 hover:opacity-100 transition-opacity" 
-  />
-    
-  <p className="text-slate-500 text-sm font-['Poppins']">
-    &copy; {new Date().getFullYear()} Bluetube. All rights reserved.
-  </p>
-    
-  <p className="text-slate-600 text-xs">
-    BLUETUBEID 
-  </p>
-</div>
-</footer>
+      )}
+
+      {/* --- MODAL POPUP PASSWORD IN-SCREEN --- */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#0a1128] border border-[#00f0ff]/40 rounded-2xl p-6 md:p-8 w-full max-w-md shadow-[0_0_50px_rgba(0,240,255,0.2)] transition-all">
+            <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+              🔒 Konten Terkunci
+            </h3>
+            <p className="text-slate-400 text-sm mb-4">
+              Kategori ini dilindungi. Silakan dapatkan password melalui Bot Telegram kami terlebih dahulu.
+            </p>
+
+            {/* --- TOMBOL ARAHAN KE TELEGRAM BOT --- */}
+            {/* GANTI "USERNAME_BOT_KAMU" DENGAN USERNAME BOT TELEGRAM-MU TANPA @ */}
+            <a
+              href="https://t.me/BluetubeidBOT" 
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 mb-6 rounded-xl bg-[#0088cc]/10 border border-[#0088cc]/50 text-[#0088cc] hover:bg-[#0088cc] hover:text-white font-semibold text-sm transition-all"
+            >
+              ✈️ Klik Disini Untuk Meminta Password^^
+            </a>
+            {/* -------------------------------------- */}
+
+            <form onSubmit={handleVerifyPassword} className="space-y-4">
+              <div>
+                <input 
+                  type="password" 
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="Masukkan Password..."
+                  autoFocus
+                  className="w-full px-4 py-3 bg-[#03050a] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#00f0ff] focus:ring-1 focus:ring-[#00f0ff] transition-all"
+                />
+                {errorMessage && (
+                  <p className="text-red-400 text-xs mt-2">{errorMessage}</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordModal(false)}
+                  className="px-5 py-2.5 rounded-xl border border-white/10 text-slate-300 hover:bg-white/5 text-sm transition-all"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading || !passwordInput}
+                  className="px-5 py-2.5 rounded-xl bg-[#00f0ff] text-[#03050a] font-semibold text-sm hover:shadow-[0_0_15px_rgba(0,240,255,0.5)] disabled:opacity-50 transition-all"
+                >
+                  {isLoading ? 'Memeriksa...' : 'Buka Akses'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* FOOTER */}
+      <footer className="mt-20 py-10 border-t border-white/10 text-center">
+        <div className="flex flex-col items-center gap-3">
+          <img 
+            src="/Gemini_Generated_Image_weti0iweti0iweti.webp" 
+            alt="Logo Bluetube" 
+            className="h-24 w-auto opacity-90 hover:opacity-100 transition-opacity" 
+          />
+          <p className="text-slate-500 text-sm font-['Poppins']">
+            &copy; {new Date().getFullYear()} Bluetube. All rights reserved.
+          </p>
+          <p className="text-slate-600 text-xs">BLUETUBEID</p>
+        </div>
+      </footer>
     </main>
   );
 }

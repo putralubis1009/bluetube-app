@@ -19,7 +19,7 @@ export default function RootLayout({ children }) {
             
             <div className="flex items-center gap-3 cursor-pointer">
               <img 
-                src="https://bluetubeid.xyz/wp-content/uploads/2026/07/Gemini_Generated_Image_weti0iweti0iweti.webp" 
+                src="https://cdn.bluetubeid.xyz/Gemini_Generated_Image_udnbxzudnbxzudnb.webp" 
                 alt="BLUETUBEID Logo" 
                 className="h-[38px] md:h-[50px] w-auto object-contain"
               />
