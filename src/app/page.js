@@ -35,15 +35,23 @@ function HomeContent() {
     { id: 'BOCIL', label: 'BOCIL 🔒' }, // Ikon gembok indikator
   ];
 
-  // 1. FILTER VIDEO: Sembunyikan 'BOCIL' dari halaman utama (Semua Kategori)
+  // 1. FILTER VIDEO PINTAR: Mencakup pengecekan urutan kata bebas dan lintas kategori
   const filteredVideos = videoData.filter(video => {
-    // Jika di "Semua Kategori", sembunyikan genre BOCIL
+    // Sembunyikan genre BOCIL jika di "Semua Kategori"
     if (activeGenre === 'all' && video.genre === 'BOCIL') {
       return false;
     }
 
+    // Cek Kategori (Sesuai tombol menu yang diklik)
     const cocokKategori = activeGenre === 'all' || video.genre === activeGenre;
-    const cocokKataKunci = video.title.toLowerCase().includes(kataKunci.toLowerCase());
+
+    // Cek Kata Kunci (Pencarian Luas)
+    const searchTerms = kataKunci.toLowerCase().split(' ').filter(term => term.length > 0);
+    const textToSearch = `${video.title} ${video.genre}`.toLowerCase();
+    
+    // Jika kotak pencarian kosong, anggap cocok. Jika ada isinya, cek apakah semua kata ada di textToSearch
+    const cocokKataKunci = searchTerms.length === 0 || searchTerms.every(term => textToSearch.includes(term));
+
     return cocokKategori && cocokKataKunci;
   });
 
