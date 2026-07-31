@@ -150,8 +150,13 @@ function HomeContent() {
                 onClick={() => handlePlayVideo(item)}
                 className="bg-[#0a1128]/40 border border-white/5 rounded-xl overflow-hidden hover:-translate-y-1.5 hover:border-[#00f0ff] hover:shadow-[0_10px_25px_rgba(0,240,255,0.15)] transition-all duration-300 cursor-pointer"
               >
-                <div className="h-[100px] md:h-[130px] bg-[#0a1128] w-full relative group">
-                  <img src={item.thumb} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                {/* PERUBAHAN THUMBNAIL DI SINI: Menggunakan object-contain & bg-black agar foto tidak terpotong */}
+                <div className="h-[120px] md:h-[150px] bg-black w-full relative group flex items-center justify-center overflow-hidden">
+                  <img 
+                    src={item.thumb} 
+                    alt={item.title} 
+                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" 
+                  />
                 </div>
                 <div className="p-2 md:p-4 relative z-10">
                   <h3 className="text-[#f8fafc] text-[11px] md:text-[14px] mb-2 line-clamp-2 leading-snug">{item.title}</h3>
@@ -205,8 +210,6 @@ function HomeContent() {
               Kategori ini dilindungi. Silakan dapatkan password melalui Bot Telegram kami terlebih dahulu.
             </p>
 
-            {/* --- TOMBOL ARAHAN KE TELEGRAM BOT --- */}
-            {/* GANTI "USERNAME_BOT_KAMU" DENGAN USERNAME BOT TELEGRAM-MU TANPA @ */}
             <a
               href="https://t.me/BluetubeidBOT" 
               target="_blank"
@@ -215,7 +218,6 @@ function HomeContent() {
             >
               ✈️ Klik Disini Untuk Meminta Password^^
             </a>
-            {/* -------------------------------------- */}
 
             <form onSubmit={handleVerifyPassword} className="space-y-4">
               <div>
