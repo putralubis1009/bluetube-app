@@ -139,15 +139,20 @@ function PlayerContent() {
         &#8592; Kembali
       </button>
 
-      {/* --- BANNER GIF HALAMAN NONTON --- */}
-      <div className="w-full mb-6 relative group">
+      {/* --- BANNER ANIMASI WEBM (SANGAT RINGAN) --- */}
+      <div className="w-full max-w-[800px] mx-auto mb-6 relative group">
         <a href="https://barges88.click/register/J6409PQB" target="_blank" rel="noopener noreferrer" className="block w-full">
-          <img 
-            src="https://cdn.bluetubeid.xyz/Desain%20tanpa%20judul.gif" 
-            alt="Banner Iklan" 
-            // PERUBAHAN DISINI: Menghapus batas max-h dan object-fill
-            className="w-full h-auto rounded-xl border border-white/10 group-hover:border-[#00f0ff] group-hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all duration-300 block"
-          />
+          <video 
+            autoPlay 
+            loop 
+            muted 
+            playsInline
+            // pointer-events-none memastikan klik pada video akan diteruskan ke link <a>
+            className="w-full h-auto rounded-xl border border-white/10 group-hover:border-[#00f0ff] group-hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all duration-300 block pointer-events-none"
+          >
+            {/* GANTI src DENGAN NAMA FILE WEBM ANDA DI FOLDER PUBLIC */}
+            <source src="https://cdn.bluetubeid.xyz/Desaintanpajudul-ezgif.com-gif-to-webm-converter.webm" />
+          </video>
         </a>
       </div>
       {/* --------------------------------- */}
