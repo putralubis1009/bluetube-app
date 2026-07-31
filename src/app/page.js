@@ -12,7 +12,6 @@ function HomeContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // --- STATE UNTUK LOCK & MODAL PASSWORD ---
   const [isBocilUnlocked, setIsBocilUnlocked] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
@@ -32,44 +31,31 @@ function HomeContent() {
     { id: 'SELINGKUH', label: 'SELINGKUH' },
     { id: 'ASIA', label: 'ASIA' },
     { id: 'TOBRUT', label: 'TOBRUT' },
-    { id: 'BOCIL', label: 'BOCIL 🔒' }, // Ikon gembok indikator
+    { id: 'BOCIL', label: 'BOCIL 🔒' },
   ];
 
-  // 1. FILTER VIDEO PINTAR: Mencakup pengecekan urutan kata bebas dan lintas kategori
   const filteredVideos = videoData.filter(video => {
-    // Sembunyikan genre BOCIL jika di "Semua Kategori"
     if (activeGenre === 'all' && video.genre === 'BOCIL') {
       return false;
     }
-
-    // Cek Kategori (Sesuai tombol menu yang diklik)
     const cocokKategori = activeGenre === 'all' || video.genre === activeGenre;
-
-    // Cek Kata Kunci (Pencarian Luas)
     const searchTerms = kataKunci.toLowerCase().split(' ').filter(term => term.length > 0);
     const textToSearch = `${video.title} ${video.genre}`.toLowerCase();
-    
-    // Jika kotak pencarian kosong, anggap cocok. Jika ada isinya, cek apakah semua kata ada di textToSearch
     const cocokKataKunci = searchTerms.length === 0 || searchTerms.every(term => textToSearch.includes(term));
-
     return cocokKategori && cocokKataKunci;
   });
 
-  // Reset ke halaman 1 jika filter atau pencarian berubah
   useEffect(() => {
     setCurrentPage(1);
   }, [activeGenre, kataKunci]);
 
-  // Logika Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentVideos = filteredVideos.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredVideos.length / itemsPerPage);
 
-  // 2. LOGIKA KLIK KATEGORI
   const handleGenreClick = (genreId) => {
     if (genreId === 'BOCIL' && !isBocilUnlocked) {
-      // Tampilkan Modal Password jika belum unlocked
       setShowPasswordModal(true);
       setErrorMessage('');
       setPasswordInput('');
@@ -78,21 +64,17 @@ function HomeContent() {
     }
   };
 
-  // 3. LOGIKA VERIFIKASI PASSWORD
   const handleVerifyPassword = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage('');
-
     try {
       const response = await fetch('/api/verify-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: passwordInput }),
       });
-
       const data = await response.json();
-
       if (data.success) {
         setIsBocilUnlocked(true);
         setActiveGenre('BOCIL');
@@ -118,7 +100,20 @@ function HomeContent() {
   };
 
   return (
-    <main>
+    <main className="px-4 py-4 max-w-7xl mx-auto">
+      {/* --- BANNER GIF HOMEPAGE --- */}
+      <div className="w-full mb-6 relative group">
+        <a href="https://barges88.click/register/J6409PQB" target="_blank" rel="noopener noreferrer" className="block w-full">
+          <img 
+            src="https://cdn.bluetubeid.xyz/Desain%20tanpa%20judul.gif" 
+            alt="Banner Iklan" 
+            // PERUBAHAN DISINI: Menggunakan w-full dan h-auto agar ukuran proporsional mengikuti rasio asli banner
+            className="w-full h-auto rounded-xl border border-white/10 group-hover:border-[#00f0ff] group-hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all duration-300 block"
+          />
+        </a>
+      </div>
+      {/* --------------------------- */}
+
       {/* Genre Container */}
       <div className="flex flex-wrap gap-2.5 mb-6">
         {genres.map((genre) => (
@@ -150,7 +145,6 @@ function HomeContent() {
                 onClick={() => handlePlayVideo(item)}
                 className="bg-[#0a1128]/40 border border-white/5 rounded-xl overflow-hidden hover:-translate-y-1.5 hover:border-[#00f0ff] hover:shadow-[0_10px_25px_rgba(0,240,255,0.15)] transition-all duration-300 cursor-pointer"
               >
-                {/* PERUBAHAN THUMBNAIL DI SINI: Menggunakan object-contain & bg-black agar foto tidak terpotong */}
                 <div className="h-[120px] md:h-[150px] bg-black w-full relative group flex items-center justify-center overflow-hidden">
                   <img 
                     src={item.thumb} 
@@ -178,11 +172,9 @@ function HomeContent() {
               >
                 Prev
               </button>
-              
               <span className="text-white text-sm px-3">
                 {currentPage} / {totalPages}
               </span>
-
               <button 
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage(prev => prev + 1)}

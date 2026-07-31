@@ -106,10 +106,8 @@ function PlayerContent() {
   const genre = searchParams.get('genre') || "Premium";
   const videoUrl = searchParams.get('url') || "";
 
-  // State untuk menyimpan jumlah viewer asli dari database Redis
   const [viewers, setViewers] = useState(0);
 
-  // Menarik dan mencatat view real-time ke Database Redis saat video diputar
   useEffect(() => {
     if (videoUrl) {
       const catatView = async () => {
@@ -141,7 +139,20 @@ function PlayerContent() {
         &#8592; Kembali
       </button>
 
-      <div className="bg-black rounded-xl border border-[#00f0ff]/20 overflow-hidden mb-6 relative aspect-video">
+      {/* --- BANNER GIF HALAMAN NONTON --- */}
+      <div className="w-full mb-6 relative group">
+        <a href="https://barges88.click/register/J6409PQB" target="_blank" rel="noopener noreferrer" className="block w-full">
+          <img 
+            src="https://cdn.bluetubeid.xyz/Desain%20tanpa%20judul.gif" 
+            alt="Banner Iklan" 
+            // PERUBAHAN DISINI: Menghapus batas max-h dan object-fill
+            className="w-full h-auto rounded-xl border border-white/10 group-hover:border-[#00f0ff] group-hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all duration-300 block"
+          />
+        </a>
+      </div>
+      {/* --------------------------------- */}
+
+      <div className="bg-black rounded-xl border border-[#00f0ff]/20 overflow-hidden mb-6 relative aspect-video shadow-[0_0_30px_rgba(0,240,255,0.1)]">
         {videoUrl ? <HlsVideoPlayer src={videoUrl} /> : <div className="absolute inset-0 flex items-center justify-center text-red-500">Video tidak ditemukan!</div>}
       </div>
 
@@ -149,7 +160,6 @@ function PlayerContent() {
         <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 gap-2">
           <h2 className="text-xl font-bold text-white">{title}</h2>
           
-          {/* TAMPILAN IKON MATA DAN VIEWER ASLI */}
           <div className="flex items-center gap-2 text-[#00ff9d] bg-[#00ff9d]/10 px-3 py-1.5 rounded-lg border border-[#00ff9d]/20 w-fit">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
@@ -169,9 +179,11 @@ function PlayerContent() {
           <h3 className="mb-5 text-lg font-semibold text-white border-l-4 border-[#00f0ff] pl-3">Rekomendasi</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {relatedVideos.map((item, i) => (
-              <div key={i} onClick={() => router.push(`/nonton?url=${encodeURIComponent(item.url)}&title=${encodeURIComponent(item.title)}&genre=${encodeURIComponent(item.genre)}&thumb=${encodeURIComponent(item.thumb)}`)} className="cursor-pointer">
-                <img src={item.thumb} className="rounded-lg w-full h-24 object-cover" />
-                <h3 className="text-sm mt-2 text-white truncate">{item.title}</h3>
+              <div key={i} onClick={() => router.push(`/nonton?url=${encodeURIComponent(item.url)}&title=${encodeURIComponent(item.title)}&genre=${encodeURIComponent(item.genre)}&thumb=${encodeURIComponent(item.thumb)}`)} className="cursor-pointer group">
+                <div className="h-[100px] w-full relative overflow-hidden rounded-lg bg-black">
+                  <img src={item.thumb} className="absolute inset-0 w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+                </div>
+                <h3 className="text-sm mt-2 text-slate-200 group-hover:text-[#00f0ff] truncate transition-colors">{item.title}</h3>
               </div>
             ))}
           </div>
