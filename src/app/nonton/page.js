@@ -7,7 +7,7 @@ import { videoData } from "../database";
 function HlsVideoPlayer({ src }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
-  const clickTimeoutRef = useRef(null); // Tambahan ref untuk timer ketukan
+  const clickTimeoutRef = useRef(null);
   const [levels, setLevels] = useState([]);
   const [currentLevel, setCurrentLevel] = useState(-1);
 
@@ -35,19 +35,16 @@ function HlsVideoPlayer({ src }) {
 
     return () => { 
       if (hlsRef.current) hlsRef.current.destroy(); 
-      // Bersihkan timer jika komponen ditutup
       if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
     };
   }, [src]);
 
-  // Handle Play/Pause, Skip/Rewind yang diperbarui
   const handleContainerClick = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const isLeft = clickX < rect.width / 2;
 
     if (clickTimeoutRef.current) {
-      // Jika sudah ada timer, berarti ini ketukan kedua (Double Tap)
       clearTimeout(clickTimeoutRef.current);
       clickTimeoutRef.current = null;
       
@@ -55,9 +52,7 @@ function HlsVideoPlayer({ src }) {
         videoRef.current.currentTime += isLeft ? -5 : 5;
       }
     } else {
-      // Jika belum ada, mulai timer 250 milidetik untuk menunggu ketukan kedua
       clickTimeoutRef.current = setTimeout(() => {
-        // Jika tidak ada ketukan kedua, jalankan Single Tap (Play/Pause)
         if (videoRef.current) {
           videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause();
         }
@@ -75,11 +70,6 @@ function HlsVideoPlayer({ src }) {
 
   return (
     <div className="relative group w-full h-full">
-      {/* 
-        REVISI CSS: 'inset-0' diganti menjadi 'top-0 left-0 right-0 bottom-16' 
-        Area klik sekarang menyisakan ruang 64px di bagian bawah agar tombol 
-        fullscreen, play, dan volume bawaan video tidak terhalang.
-      */}
       <div 
         className="absolute top-0 left-0 right-0 bottom-16 z-10 cursor-pointer" 
         onClick={handleContainerClick} 
@@ -116,6 +106,33 @@ function PlayerContent() {
   const genre = searchParams.get('genre') || "Premium";
   const videoUrl = searchParams.get('url') || "";
 
+  // State untuk menyimpan jumlah viewer asli dari database Redis
+  const [viewers, setViewers] = useState(0);
+
+  // Menarik dan mencatat view real-time ke Database Redis saat video diputar
+  useEffect(() => {
+    if (videoUrl) {
+      const catatView = async () => {
+        try {
+          const response = await fetch('/api/views', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ videoUrl: videoUrl })
+          });
+          
+          const data = await response.json();
+          if (data.views) {
+            setViewers(data.views);
+          }
+        } catch (error) {
+          console.error("Gagal mengambil data views:", error);
+        }
+      };
+
+      catatView();
+    }
+  }, [videoUrl]);
+
   const relatedVideos = videoData.filter(v => v.genre === genre && v.url !== videoUrl).slice(0, 8);
 
   return (
@@ -129,7 +146,21 @@ function PlayerContent() {
       </div>
 
       <div className="p-5 bg-[#0a1128]/80 border border-[#00f0ff]/10 rounded-xl">
-        <h2 className="text-xl font-bold text-white mb-2">{title}</h2>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 gap-2">
+          <h2 className="text-xl font-bold text-white">{title}</h2>
+          
+          {/* TAMPILAN IKON MATA DAN VIEWER ASLI */}
+          <div className="flex items-center gap-2 text-[#00ff9d] bg-[#00ff9d]/10 px-3 py-1.5 rounded-lg border border-[#00ff9d]/20 w-fit">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span className="text-sm font-semibold tracking-wide">
+              {viewers.toLocaleString('id-ID')} Views
+            </span>
+          </div>
+        </div>
+        
         <span className="text-xs font-bold text-[#03050a] bg-[#00f0ff] px-3 py-1 rounded-md">{genre}</span>
       </div>
 
