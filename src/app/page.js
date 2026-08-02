@@ -158,7 +158,7 @@ function HomeContent() {
 
       {/* Grid Video */}
       {isLoading ? (
-        <div className="text-center py-20 text-slate-400">Memuat video dari database...</div>
+        <div className="text-center py-20 text-slate-400">Memuat ...</div>
       ) : currentVideos.length > 0 ? (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-5">
