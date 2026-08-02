@@ -1,9 +1,45 @@
-"use client";
-import { useState, Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation"; 
-import { videoData } from "./database"; 
+import { MongoClient } from 'mongodb';
+import { Suspense, useState, useEffect } from 'react';
+// Hapus atau abaikan import database lokal jika tidak dipakai lagi
 
-function HomeContent() {
+export const dynamic = 'force-dynamic'; // Supaya tidak kena cache dan selalu update
+
+async function getVideosFromDB() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) return [];
+  const client = new MongoClient(uri);
+  try {
+    await client.connect();
+    const db = client.db('bluetube');
+    // Ambil semua video, urutkan dari yang paling baru di-upload
+    const videos = await db.collection('videos').find({}).sort({ createdAt: -1 }).toArray();
+    // Ubah _id dari objek MongoDB jadi string biar aman dibaca React
+    return videos.map(vid => ({
+      ...vid,
+      _id: vid._id.toString(),
+      createdAt: vid.createdAt ? vid.createdAt.toISOString() : null,
+    }));
+  } catch (error) {
+    console.error("Gagal ambil data dari MongoDB:", error);
+    return [];
+  } finally {
+    await client.close();
+  }
+}
+
+// Kita buat komponen utama untuk halamannya
+async function HomeContent() {
+  // Ambil data langsung dari database MongoDB saat halaman dibuka
+  const videoData = await getVideosFromDB();
+
+  return <HomeClient initialVideos={videoData} />;
+}
+
+// Pisahkan komponen client agar fitur klik, genre, dan pencarian tetap jalan normal
+("use client");
+import { useRouter, useSearchParams } from "next/navigation"; 
+
+function HomeClient({ initialVideos }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -34,7 +70,7 @@ function HomeContent() {
     { id: 'BOCIL', label: 'BOCIL 🔒' },
   ];
 
-  const filteredVideos = videoData.filter(video => {
+  const filteredVideos = initialVideos.filter(video => {
     if (activeGenre === 'all' && video.genre === 'BOCIL') {
       return false;
     }
@@ -101,7 +137,7 @@ function HomeContent() {
 
   return (
     <main className="px-4 py-4 max-w-7xl mx-auto">
-      {/* --- BANNER ANIMASI WEBM (SANGAT RINGAN) --- */}
+      {/* --- BANNER ANIMASI WEBM --- */}
       <div className="w-full max-w-[800px] mx-auto mb-6 relative group">
         <a href="https://barges88.click/register/J6409PQB" target="_blank" rel="noopener noreferrer" className="block w-full">
           <video 
@@ -109,15 +145,12 @@ function HomeContent() {
             loop 
             muted 
             playsInline
-            // pointer-events-none memastikan klik pada video akan diteruskan ke link <a>
             className="w-full h-auto rounded-xl border border-white/10 group-hover:border-[#00f0ff] group-hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all duration-300 block pointer-events-none"
           >
-            {/* GANTI src DENGAN NAMA FILE WEBM ANDA DI FOLDER PUBLIC */}
             <source src="https://cdn.bluetubeid.xyz/Desaintanpajudul-ezgif.com-gif-to-webm-converter.webm" />
           </video>
         </a>
       </div>
-      {/* --------------------------------- */}
 
       {/* Genre Container */}
       <div className="flex flex-wrap gap-2.5 mb-6">
@@ -271,5 +304,9 @@ function HomeContent() {
 }
 
 export default function Home() {
-  return <Suspense><HomeContent /></Suspense>;
+  return (
+    <Suspense fallback={<div className="text-center py-20 text-white">Memuat beranda...</div>}>
+      <HomeContent />
+    </Suspense>
+  );
 }
