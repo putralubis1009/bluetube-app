@@ -1,58 +1,41 @@
-import { MongoClient } from 'mongodb';
-import { Suspense, useState, useEffect } from 'react';
-// Hapus atau abaikan import database lokal jika tidak dipakai lagi
-
-export const dynamic = 'force-dynamic'; // Supaya tidak kena cache dan selalu update
-
-async function getVideosFromDB() {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) return [];
-  const client = new MongoClient(uri);
-  try {
-    await client.connect();
-    const db = client.db('bluetube');
-    // Ambil semua video, urutkan dari yang paling baru di-upload
-    const videos = await db.collection('videos').find({}).sort({ createdAt: -1 }).toArray();
-    // Ubah _id dari objek MongoDB jadi string biar aman dibaca React
-    return videos.map(vid => ({
-      ...vid,
-      _id: vid._id.toString(),
-      createdAt: vid.createdAt ? vid.createdAt.toISOString() : null,
-    }));
-  } catch (error) {
-    console.error("Gagal ambil data dari MongoDB:", error);
-    return [];
-  } finally {
-    await client.close();
-  }
-}
-
-// Kita buat komponen utama untuk halamannya
-async function HomeContent() {
-  // Ambil data langsung dari database MongoDB saat halaman dibuka
-  const videoData = await getVideosFromDB();
-
-  return <HomeClient initialVideos={videoData} />;
-}
-
-// Pisahkan komponen client agar fitur klik, genre, dan pencarian tetap jalan normal
-("use client");
+"use client";
+import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation"; 
 
-function HomeClient({ initialVideos }) {
+function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
   const kataKunci = searchParams.get('cari') || ""; 
   const [activeGenre, setActiveGenre] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [videoData, setVideoData] = useState([]); // Data video dari MongoDB
+  const [isLoading, setIsLoading] = useState(true);
   const itemsPerPage = 10;
 
   const [isBocilUnlocked, setIsBocilUnlocked] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  // Tarik data video dari API saat halaman dibuka
+  useEffect(() => {
+    async function fetchVideosFromDB() {
+      try {
+        const res = await fetch('/api/videos', { cache: 'no-store' });
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setVideoData(data);
+        }
+      } catch (error) {
+        console.error("Gagal memuat video:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchVideosFromDB();
+  }, []);
 
   const genres = [
     { id: 'all', label: 'Semua Kategori' },
@@ -70,7 +53,7 @@ function HomeClient({ initialVideos }) {
     { id: 'BOCIL', label: 'BOCIL 🔒' },
   ];
 
-  const filteredVideos = initialVideos.filter(video => {
+  const filteredVideos = videoData.filter(video => {
     if (activeGenre === 'all' && video.genre === 'BOCIL') {
       return false;
     }
@@ -102,7 +85,7 @@ function HomeClient({ initialVideos }) {
 
   const handleVerifyPassword = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsVerifying(true);
     setErrorMessage('');
     try {
       const response = await fetch('/api/verify-password', {
@@ -121,7 +104,7 @@ function HomeClient({ initialVideos }) {
     } catch (error) {
       setErrorMessage('Terjadi kesalahan koneksi.');
     } finally {
-      setIsLoading(false);
+      setIsVerifying(false);
     }
   };
 
@@ -174,7 +157,9 @@ function HomeClient({ initialVideos }) {
       </h3>
 
       {/* Grid Video */}
-      {currentVideos.length > 0 ? (
+      {isLoading ? (
+        <div className="text-center py-20 text-slate-400">Memuat video dari database...</div>
+      ) : currentVideos.length > 0 ? (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-5">
             {currentVideos.map((item, index) => (
@@ -225,19 +210,19 @@ function HomeClient({ initialVideos }) {
         </>
       ) : (
         <div className="text-center py-20 bg-[#0a1128]/20 rounded-xl border border-white/5">
-          <p className="text-slate-400">Video tidak ditemukan.</p>
+          <p className="text-slate-400">Belum ada video di database.</p>
         </div>
       )}
 
-      {/* --- MODAL POPUP PASSWORD IN-SCREEN --- */}
+      {/* --- MODAL POPUP PASSWORD --- */}
       {showPasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0a1128] border border-[#00f0ff]/40 rounded-2xl p-6 md:p-8 w-full max-w-md shadow-[0_0_50px_rgba(0,240,255,0.2)] transition-all">
+          <div className="bg-[#0a1128] border border-[#00f0ff]/40 rounded-2xl p-6 md:p-8 w-full max-w-md shadow-[0_0_50px_rgba(0,240,255,0.2)]">
             <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
               🔒 Konten Terkunci
             </h3>
             <p className="text-slate-400 text-sm mb-4">
-              Kategori ini dilindungi. Silakan dapatkan password melalui Bot Telegram kami terlebih dahulu.
+              Kategori ini dilindungi. Silakan dapatkan password melalui Bot Telegram kami.
             </p>
 
             <a
@@ -257,7 +242,7 @@ function HomeClient({ initialVideos }) {
                   onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder="Masukkan Password..."
                   autoFocus
-                  className="w-full px-4 py-3 bg-[#03050a] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#00f0ff] focus:ring-1 focus:ring-[#00f0ff] transition-all"
+                  className="w-full px-4 py-3 bg-[#03050a] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#00f0ff]"
                 />
                 {errorMessage && (
                   <p className="text-red-400 text-xs mt-2">{errorMessage}</p>
@@ -268,16 +253,16 @@ function HomeClient({ initialVideos }) {
                 <button
                   type="button"
                   onClick={() => setShowPasswordModal(false)}
-                  className="px-5 py-2.5 rounded-xl border border-white/10 text-slate-300 hover:bg-white/5 text-sm transition-all"
+                  className="px-5 py-2.5 rounded-xl border border-white/10 text-slate-300 hover:bg-white/5 text-sm"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  disabled={isLoading || !passwordInput}
-                  className="px-5 py-2.5 rounded-xl bg-[#00f0ff] text-[#03050a] font-semibold text-sm hover:shadow-[0_0_15px_rgba(0,240,255,0.5)] disabled:opacity-50 transition-all"
+                  disabled={isVerifying || !passwordInput}
+                  className="px-5 py-2.5 rounded-xl bg-[#00f0ff] text-[#03050a] font-semibold text-sm disabled:opacity-50"
                 >
-                  {isLoading ? 'Memeriksa...' : 'Buka Akses'}
+                  {isVerifying ? 'Memeriksa...' : 'Buka Akses'}
                 </button>
               </div>
             </form>
@@ -291,12 +276,9 @@ function HomeClient({ initialVideos }) {
           <img 
             src="/Gemini_Generated_Image_weti0iweti0iweti.webp" 
             alt="Logo Bluetube" 
-            className="h-24 w-auto opacity-90 hover:opacity-100 transition-opacity" 
+            className="h-24 w-auto opacity-90" 
           />
-          <p className="text-slate-500 text-sm font-['Poppins']">
-            &copy; {new Date().getFullYear()} Bluetube. All rights reserved.
-          </p>
-          <p className="text-slate-600 text-xs">BLUETUBEID</p>
+          <p className="text-slate-500 text-sm">&copy; {new Date().getFullYear()} Bluetube. All rights reserved.</p>
         </div>
       </footer>
     </main>
