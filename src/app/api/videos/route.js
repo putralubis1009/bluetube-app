@@ -45,14 +45,23 @@ export async function GET() {
   }
 }
 
-// FUNGSI POST: Tetap aman untuk nyimpan video baru dari halaman admin ke MongoDB
+// FUNGSI POST: SUDAH DIGEMBOK SISI SERVER
 export async function POST(request) {
   const client = new MongoClient(uri);
 
   try {
     const body = await request.json();
-    const { title, genre, thumb, url } = body;
+    
+    // TANGKAP PASSWORD DARI FORM ADMIN JUGA
+    const { title, genre, thumb, url, password } = body;
 
+    // SATPAM JALUR BELAKANG: Cek apakah password cocok dengan yang ada di Vercel
+    if (password !== process.env.ADMIN_PASSWORD) {
+      console.log("Ada penyusup nyoba masuk pakai password salah!");
+      return NextResponse.json({ error: 'Password Salah! Akses Ditolak.' }, { status: 401 });
+    }
+
+    // Kalau password benar, baru buka pintu ke MongoDB
     await client.connect();
     const db = client.db('bluetube');
     const collection = db.collection('videos');
