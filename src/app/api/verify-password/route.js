@@ -5,7 +5,7 @@ export async function POST(request) {
     const { password } = await request.json();
     
     // Ganti password rahasia sesuai keinginanmu di sini
-    const PASSWORD_BOCIL = "227980"; 
+    const PASSWORD_BOCIL = "220320"; 
 
     if (password === PASSWORD_BOCIL) {
       return NextResponse.json({ success: true });
