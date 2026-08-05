@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "T8599769359:AAGohi5rYqCBn1L6nXS5GDam4KViKjyFonk"; 
-const PASSWORD_AKSES = "227980"; 
+const PASSWORD_AKSES = "220320"; 
 const TELEGRAM_PRIBADI_KAMU = "BluetubeIDofficial"; // Tanpa @
 
 async function sendTelegramAPI(method, payload) {
