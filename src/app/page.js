@@ -1,6 +1,46 @@
 "use client";
 import { useState, Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation"; 
+import { useRouter, useSearchParams } from "next/navigation";
+import { adsData } from "./database-ads"; 
+
+// --- KOMPONEN SLOT IKLAN (REVISI) ---
+const AdSlot = ({ ad }) => {
+  // Skeleton loader menggunakan aspect ratio agar tidak gepeng saat loading
+  if (!ad) return <div className="w-full aspect-[21/9] bg-white/5 rounded-xl border border-white/10 animate-pulse"></div>;
+  
+  // Deteksi jika format iklan berupa video webm/mp4
+  const isVideo = ad.url.match(/\.(webm|mp4)$/i);
+  
+  return (
+    <a 
+      href={ad.link} 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      // Hapus tinggi fix, biarkan menyesuaikan proporsi asli
+      className="block w-full relative group rounded-xl overflow-hidden border border-white/10 hover:border-[#00f0ff] hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all duration-300"
+    >
+      {isVideo ? (
+        <video 
+          autoPlay 
+          loop 
+          muted 
+          playsInline 
+          // Ubah ke h-auto agar tidak crop
+          className="w-full h-auto block"
+        >
+          <source src={ad.url} />
+        </video>
+      ) : (
+        <img 
+          src={ad.url} 
+          alt="Ads Banner" 
+          // Ubah ke h-auto agar tidak crop
+          className="w-full h-auto block" 
+        />
+      )}
+    </a>
+  );
+};
 
 function HomeContent() {
   const router = useRouter();
@@ -9,7 +49,7 @@ function HomeContent() {
   const kataKunci = searchParams.get('cari') || ""; 
   const [activeGenre, setActiveGenre] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [videoData, setVideoData] = useState([]); // Data video dari MongoDB
+  const [videoData, setVideoData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const itemsPerPage = 10;
 
@@ -19,15 +59,26 @@ function HomeContent() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
 
-  // Tarik data video dari API saat halaman dibuka
+  // --- LOGIKA ROTASI IKLAN ---
+  const [adIndex, setAdIndex] = useState(0);
+  useEffect(() => {
+    if (!adsData || adsData.length <= 4) return; 
+    const interval = setInterval(() => {
+      setAdIndex((prev) => (prev + 1) % adsData.length);
+    }, 4000); 
+    return () => clearInterval(interval);
+  }, []);
+
+  const activeAds = adsData && adsData.length > 0
+    ? Array.from({ length: 4 }).map((_, i) => adsData[(adIndex + i) % adsData.length])
+    : [null, null, null, null];
+
   useEffect(() => {
     async function fetchVideosFromDB() {
       try {
         const res = await fetch('/api/videos', { cache: 'no-store' });
         const data = await res.json();
-        if (Array.isArray(data)) {
-          setVideoData(data);
-        }
+        if (Array.isArray(data)) setVideoData(data);
       } catch (error) {
         console.error("Gagal memuat video:", error);
       } finally {
@@ -39,24 +90,16 @@ function HomeContent() {
 
   const genres = [
     { id: 'all', label: 'Semua Kategori' },
-    { id: 'BARAT', label: 'BARAT' },
-    { id: 'JEPANG', label: 'JEPANG' },
-    { id: 'INDO', label: 'INDO' },
-    { id: 'VIRAL', label: 'VIRAL' },
-    { id: 'RUSIA', label: 'RUSIA' },
-    { id: 'MAHASISWI', label: 'MAHASISWI' },
-    { id: 'HIJAB', label: 'HIJAB' },
-    { id: 'SMA', label: 'SMA' },
-    { id: 'SELINGKUH', label: 'SELINGKUH' },
-    { id: 'ASIA', label: 'ASIA' },
-    { id: 'TOBRUT', label: 'TOBRUT' },
-    { id: 'BOCIL', label: 'BOCIL 🔒' },
+    { id: 'BARAT', label: 'BARAT' }, { id: 'JEPANG', label: 'JEPANG' },
+    { id: 'INDO', label: 'INDO' }, { id: 'VIRAL', label: 'VIRAL' },
+    { id: 'RUSIA', label: 'RUSIA' }, { id: 'MAHASISWI', label: 'MAHASISWI' },
+    { id: 'HIJAB', label: 'HIJAB' }, { id: 'SMA', label: 'SMA' },
+    { id: 'SELINGKUH', label: 'SELINGKUH' }, { id: 'ASIA', label: 'ASIA' },
+    { id: 'TOBRUT', label: 'TOBRUT' }, { id: 'BOCIL', label: 'BOCIL 🔒' },
   ];
 
   const filteredVideos = videoData.filter(video => {
-    if (activeGenre === 'all' && video.genre === 'BOCIL') {
-      return false;
-    }
+    if (activeGenre === 'all' && video.genre === 'BOCIL') return false;
     const cocokKategori = activeGenre === 'all' || video.genre === activeGenre;
     const searchTerms = kataKunci.toLowerCase().split(' ').filter(term => term.length > 0);
     const textToSearch = `${video.title} ${video.genre}`.toLowerCase();
@@ -64,9 +107,7 @@ function HomeContent() {
     return cocokKategori && cocokKataKunci;
   });
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeGenre, kataKunci]);
+  useEffect(() => { setCurrentPage(1); }, [activeGenre, kataKunci]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -109,30 +150,19 @@ function HomeContent() {
   };
 
   const handlePlayVideo = (video) => {
-    const query = new URLSearchParams({
-      title: video.title,
-      genre: video.genre,
-      url: video.url,
-      thumb: video.thumb
-    }).toString();
+    const query = new URLSearchParams({ title: video.title, genre: video.genre, url: video.url, thumb: video.thumb }).toString();
     router.push(`/nonton?${query}`);
   };
 
   return (
-    <main className="px-4 py-4 max-w-7xl mx-auto">
-      {/* --- BANNER ANIMASI WEBM --- */}
-      <div className="w-full max-w-[800px] mx-auto mb-6 relative group">
-        <a href="https://barges88.click/register/J6409PQB" target="_blank" rel="noopener noreferrer" className="block w-full">
-          <video 
-            autoPlay 
-            loop 
-            muted 
-            playsInline
-            className="w-full h-auto rounded-xl border border-white/10 group-hover:border-[#00f0ff] group-hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all duration-300 block pointer-events-none"
-          >
-            <source src="https://cdn.bluetubeid.xyz/Desaintanpajudul-ezgif.com-gif-to-webm-converter.webm" />
-          </video>
-        </a>
+    <main className="px-4 py-4 max-w-[1400px] mx-auto">
+      
+      {/* --- SECTION ROTASI BANNER ADS --- */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8 w-full max-w-6xl mx-auto">
+        <AdSlot ad={activeAds[0]} />
+        <AdSlot ad={activeAds[1]} />
+        <AdSlot ad={activeAds[2]} />
+        <AdSlot ad={activeAds[3]} />
       </div>
 
       {/* Genre Container */}

@@ -3,6 +3,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense, useState, useEffect, useRef } from 'react';
 import Hls from 'hls.js';
 import { videoData } from "../database";
+import { adsData } from "../database-ads"; // Pastikan path ini sesuai
 
 // --- FORMAT WAKTU ---
 const formatTime = (timeInSeconds) => {
@@ -14,13 +15,52 @@ const formatTime = (timeInSeconds) => {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
 
+// --- KOMPONEN SLOT IKLAN (REVISI) ---
+const AdSlot = ({ ad }) => {
+  // Skeleton loader menggunakan aspect ratio agar tidak gepeng saat loading
+  if (!ad) return <div className="w-full aspect-[21/9] bg-white/5 rounded-xl border border-white/10 animate-pulse"></div>;
+  
+  // Deteksi jika format iklan berupa video webm/mp4
+  const isVideo = ad.url.match(/\.(webm|mp4)$/i);
+  
+  return (
+    <a 
+      href={ad.link} 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      // Hapus tinggi fix, biarkan menyesuaikan proporsi asli
+      className="block w-full relative group rounded-xl overflow-hidden border border-white/10 hover:border-[#00f0ff] hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all duration-300"
+    >
+      {isVideo ? (
+        <video 
+          autoPlay 
+          loop 
+          muted 
+          playsInline 
+          // Ubah ke h-auto agar tidak crop
+          className="w-full h-auto block"
+        >
+          <source src={ad.url} />
+        </video>
+      ) : (
+        <img 
+          src={ad.url} 
+          alt="Ads Banner" 
+          // Ubah ke h-auto agar tidak crop
+          className="w-full h-auto block" 
+        />
+      )}
+    </a>
+  );
+};
+
+// --- KOMPONEN PLAYER VIDEO ---
 function HlsVideoPlayer({ src }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const hlsRef = useRef(null);
   const controlsTimeoutRef = useRef(null);
 
-  // States
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -30,19 +70,17 @@ function HlsVideoPlayer({ src }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   
-  // HLS Settings States
   const [levels, setLevels] = useState([]);
   const [currentLevel, setCurrentLevel] = useState(-1);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Initialize HLS / Video
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !src) return;
 
     if (Hls.isSupported()) {
       hlsRef.current = new Hls({
-        startLevel: -1, // Auto by default
+        startLevel: -1,
         maxBufferLength: 30,
         enableWorker: true,
         lowLatencyMode: true,
@@ -55,7 +93,6 @@ function HlsVideoPlayer({ src }) {
         setLevels(hlsRef.current.levels);
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Fallback iOS Native
       video.src = src;
     }
 
@@ -65,7 +102,6 @@ function HlsVideoPlayer({ src }) {
     };
   }, [src]);
 
-  // Video Event Listeners
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -93,7 +129,6 @@ function HlsVideoPlayer({ src }) {
     };
   }, []);
 
-  // Control Visibility (Hide after 3s of inactivity)
   const handleMouseMove = () => {
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
@@ -106,7 +141,6 @@ function HlsVideoPlayer({ src }) {
     if (isPlaying) setShowControls(false);
   };
 
-  // Player Actions
   const togglePlay = () => {
     if (videoRef.current) {
       videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause();
@@ -136,26 +170,18 @@ function HlsVideoPlayer({ src }) {
     }
   };
 
-  // Fix Fullscreen untuk semua device termasuk iOS
   const toggleFullscreen = () => {
     const container = containerRef.current;
     const video = videoRef.current;
 
     if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-      if (container.requestFullscreen) {
-        container.requestFullscreen();
-      } else if (container.webkitRequestFullscreen) {
-        container.webkitRequestFullscreen(); // Safari Desktop
-      } else if (video.webkitEnterFullscreen) {
-        video.webkitEnterFullscreen(); // iOS iPhone Fallback
-      }
+      if (container.requestFullscreen) container.requestFullscreen();
+      else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+      else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
       setIsFullscreen(true);
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      }
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
       setIsFullscreen(false);
     }
   };
@@ -168,9 +194,7 @@ function HlsVideoPlayer({ src }) {
 
   const changeQuality = (index) => {
     setCurrentLevel(index);
-    if (hlsRef.current) {
-      hlsRef.current.currentLevel = index;
-    }
+    if (hlsRef.current) hlsRef.current.currentLevel = index;
     setShowSettings(false);
   };
 
@@ -187,41 +211,30 @@ function HlsVideoPlayer({ src }) {
         className="w-full h-full object-contain outline-none" 
         playsInline 
         onClick={togglePlay}
-        // Controls bawaan dimatikan agar diganti UI custom
         controls={false}
       />
 
-      {/* --- HITBOX AREA UNTUK DOUBLE TAP (KIRI, TENGAH, KANAN) --- */}
       <div className="absolute inset-0 z-10 flex text-white opacity-0 transition-opacity">
-        {/* Kiri - Mundur 10s */}
         <div className="w-1/3 h-full cursor-pointer" onDoubleClick={() => skipTime(-10)} />
-        {/* Tengah - Play/Pause murni */}
         <div className="w-1/3 h-full cursor-pointer flex items-center justify-center" onClick={togglePlay} />
-        {/* Kanan - Maju 10s */}
         <div className="w-1/3 h-full cursor-pointer" onDoubleClick={() => skipTime(10)} />
       </div>
 
-      {/* --- KONTROL BAWAH (YOUTUBE STYLE) --- */}
       <div 
         className={`absolute bottom-0 left-0 right-0 z-20 px-4 pt-16 pb-2 bg-gradient-to-t from-black/90 via-black/50 to-transparent transition-opacity duration-300 ${
           showControls || !isPlaying ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
-        {/* PROGRESS BAR (COMPLEX) */}
         <div className="relative w-full h-2 group/progress cursor-pointer flex items-center mb-3">
-          {/* Background Bar */}
           <div className="absolute w-full h-1 bg-white/30 rounded-full transition-all group-hover/progress:h-1.5" />
-          {/* Buffer Bar */}
           <div 
             className="absolute h-1 bg-white/50 rounded-full transition-all group-hover/progress:h-1.5"
             style={{ width: `${(buffered / duration) * 100}%` }}
           />
-          {/* Current Progress Bar */}
           <div 
             className="absolute h-1 bg-[#00f0ff] rounded-full transition-all group-hover/progress:h-1.5 z-10"
             style={{ width: `${(currentTime / duration) * 100}%` }}
           />
-          {/* Invisible Range Input untuk Dragging/Scrubbing akurat */}
           <input 
             type="range"
             min={0}
@@ -230,17 +243,14 @@ function HlsVideoPlayer({ src }) {
             onChange={handleProgressScrub}
             className="absolute w-full h-full opacity-0 cursor-pointer z-20"
           />
-          {/* Thumb Indicator (Titik) */}
           <div 
             className="absolute h-3.5 w-3.5 bg-[#00f0ff] rounded-full scale-0 group-hover/progress:scale-100 transition-transform z-30 shadow-lg pointer-events-none"
             style={{ left: `calc(${(currentTime / duration) * 100}% - 7px)` }}
           />
         </div>
 
-        {/* BOTTOM BUTTONS */}
         <div className="flex items-center justify-between text-white">
           <div className="flex items-center gap-4">
-            {/* Play/Pause Button */}
             <button onClick={togglePlay} className="hover:text-[#00f0ff] transition-colors">
               {isPlaying ? (
                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>
@@ -249,7 +259,6 @@ function HlsVideoPlayer({ src }) {
               )}
             </button>
 
-            {/* Volume Control */}
             <div className="hidden sm:flex items-center gap-2 group/vol relative">
               <button onClick={toggleMute} className="hover:text-[#00f0ff] transition-colors">
                 {isMuted || volume === 0 ? (
@@ -265,14 +274,12 @@ function HlsVideoPlayer({ src }) {
               />
             </div>
 
-            {/* Timer */}
             <div className="text-sm font-medium tracking-wide">
               {formatTime(currentTime)} <span className="text-white/50">/</span> {formatTime(duration)}
             </div>
           </div>
 
           <div className="flex items-center gap-4 relative">
-            {/* Settings (Quality) Menu */}
             {levels.length > 0 && (
               <div className="relative">
                 {showSettings && (
@@ -301,7 +308,6 @@ function HlsVideoPlayer({ src }) {
               </div>
             )}
 
-            {/* Fullscreen Button */}
             <button onClick={toggleFullscreen} className="hover:text-[#00f0ff] transition-colors p-1">
               {isFullscreen ? (
                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
@@ -316,6 +322,7 @@ function HlsVideoPlayer({ src }) {
   );
 }
 
+// --- KONTEN UTAMA PLAYER (MEMBUNGKUS VIDEO DAN IKLAN) ---
 function PlayerContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -325,6 +332,21 @@ function PlayerContent() {
   const videoUrl = searchParams.get('url') || "";
 
   const [viewers, setViewers] = useState(0);
+  
+  // --- STATE & EFEK UNTUK ROTASI IKLAN ---
+  const [adIndex, setAdIndex] = useState(0);
+
+  useEffect(() => {
+    if (!adsData || adsData.length <= 4) return;
+    const interval = setInterval(() => {
+      setAdIndex((prev) => (prev + 1) % adsData.length);
+    }, 4000); 
+    return () => clearInterval(interval);
+  }, []);
+
+  const activeAds = adsData && adsData.length > 0
+    ? Array.from({ length: 4 }).map((_, i) => adsData[(adIndex + i) % adsData.length])
+    : [null, null, null, null];
 
   useEffect(() => {
     if (videoUrl) {
@@ -344,7 +366,6 @@ function PlayerContent() {
           console.error("Gagal mengambil data views:", error);
         }
       };
-
       catatView();
     }
   }, [videoUrl]);
@@ -352,64 +373,59 @@ function PlayerContent() {
   const relatedVideos = videoData.filter(v => v.genre === genre && v.url !== videoUrl).slice(0, 8);
 
   return (
-    <div className="max-w-6xl mx-auto py-6 px-4">
+    <div className="max-w-[1400px] mx-auto py-6 px-4">
       <button onClick={() => router.push('/')} className="mb-6 px-5 py-2 rounded-full border border-[#00ff9d] text-[#00ff9d] text-sm hover:bg-[#00ff9d] hover:text-[#03050a] transition-all">
         &#8592; Kembali
       </button>
 
-      {/* --- BANNER ANIMASI WEBM --- */}
-      <div className="w-full max-w-[800px] mx-auto mb-6 relative group">
-        <a href="https://barges88.click/register/J6409PQB" target="_blank" rel="noopener noreferrer" className="block w-full">
-          <video 
-            autoPlay 
-            loop 
-            muted 
-            playsInline
-            className="w-full h-auto rounded-xl border border-white/10 group-hover:border-[#00f0ff] group-hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all duration-300 block pointer-events-none"
-          >
-            <source src="https://cdn.bluetubeid.xyz/Desaintanpajudul-ezgif.com-gif-to-webm-converter.webm" />
-          </video>
-        </a>
+      {/* --- SECTION ROTASI BANNER ADS --- */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8 w-full max-w-6xl mx-auto">
+        <AdSlot ad={activeAds[0]} />
+        <AdSlot ad={activeAds[1]} />
+        <AdSlot ad={activeAds[2]} />
+        <AdSlot ad={activeAds[3]} />
       </div>
 
-      {/* CONTAINER VIDEO */}
-      <div className="bg-black rounded-xl border border-[#00f0ff]/20 overflow-hidden mb-6 relative aspect-video shadow-[0_0_30px_rgba(0,240,255,0.1)]">
-        {videoUrl ? <HlsVideoPlayer src={videoUrl} /> : <div className="absolute inset-0 flex items-center justify-center text-red-500">Video tidak ditemukan!</div>}
-      </div>
+      {/* CONTAINER VIDEO DAN DETAIL BAWAHNYA */}
+      <div className="w-full max-w-5xl mx-auto">
+        <div className="bg-black rounded-xl border border-[#00f0ff]/20 overflow-hidden mb-6 relative aspect-video shadow-[0_0_30px_rgba(0,240,255,0.1)]">
+          {videoUrl ? <HlsVideoPlayer src={videoUrl} /> : <div className="absolute inset-0 flex items-center justify-center text-red-500">Video tidak ditemukan!</div>}
+        </div>
 
-      <div className="p-5 bg-[#0a1128]/80 border border-[#00f0ff]/10 rounded-xl">
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 gap-2">
-          <h2 className="text-xl font-bold text-white">{title}</h2>
+        <div className="p-5 bg-[#0a1128]/80 border border-[#00f0ff]/10 rounded-xl">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 gap-2">
+            <h2 className="text-xl font-bold text-white">{title}</h2>
+            
+            <div className="flex items-center gap-2 text-[#00ff9d] bg-[#00ff9d]/10 px-3 py-1.5 rounded-lg border border-[#00ff9d]/20 w-fit">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span className="text-sm font-semibold tracking-wide">
+                {viewers.toLocaleString('id-ID')} Views
+              </span>
+            </div>
+          </div>
           
-          <div className="flex items-center gap-2 text-[#00ff9d] bg-[#00ff9d]/10 px-3 py-1.5 rounded-lg border border-[#00ff9d]/20 w-fit">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <span className="text-sm font-semibold tracking-wide">
-              {viewers.toLocaleString('id-ID')} Views
-            </span>
-          </div>
+          <span className="text-xs font-bold text-[#03050a] bg-[#00f0ff] px-3 py-1 rounded-md">{genre}</span>
         </div>
-        
-        <span className="text-xs font-bold text-[#03050a] bg-[#00f0ff] px-3 py-1 rounded-md">{genre}</span>
-      </div>
 
-      {relatedVideos.length > 0 && (
-        <div className="mt-10">
-          <h3 className="mb-5 text-lg font-semibold text-white border-l-4 border-[#00f0ff] pl-3">Rekomendasi</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {relatedVideos.map((item, i) => (
-              <div key={i} onClick={() => router.push(`/nonton?url=${encodeURIComponent(item.url)}&title=${encodeURIComponent(item.title)}&genre=${encodeURIComponent(item.genre)}&thumb=${encodeURIComponent(item.thumb)}`)} className="cursor-pointer group">
-                <div className="h-[100px] w-full relative overflow-hidden rounded-lg bg-black">
-                  <img src={item.thumb} className="absolute inset-0 w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+        {relatedVideos.length > 0 && (
+          <div className="mt-10">
+            <h3 className="mb-5 text-lg font-semibold text-white border-l-4 border-[#00f0ff] pl-3">Rekomendasi</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {relatedVideos.map((item, i) => (
+                <div key={i} onClick={() => router.push(`/nonton?url=${encodeURIComponent(item.url)}&title=${encodeURIComponent(item.title)}&genre=${encodeURIComponent(item.genre)}&thumb=${encodeURIComponent(item.thumb)}`)} className="cursor-pointer group">
+                  <div className="h-[100px] w-full relative overflow-hidden rounded-lg bg-black">
+                    <img src={item.thumb} className="absolute inset-0 w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+                  </div>
+                  <h3 className="text-sm mt-2 text-slate-200 group-hover:text-[#00f0ff] truncate transition-colors">{item.title}</h3>
                 </div>
-                <h3 className="text-sm mt-2 text-slate-200 group-hover:text-[#00f0ff] truncate transition-colors">{item.title}</h3>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
