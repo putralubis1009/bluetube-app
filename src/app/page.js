@@ -1,14 +1,11 @@
 "use client";
 import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { adsData } from "./database-ads"; 
 
-// --- KOMPONEN SLOT IKLAN (REVISI) ---
+// --- KOMPONEN SLOT IKLAN ---
 const AdSlot = ({ ad }) => {
-  // Skeleton loader menggunakan aspect ratio agar tidak gepeng saat loading
   if (!ad) return <div className="w-full aspect-[21/9] bg-white/5 rounded-xl border border-white/10 animate-pulse"></div>;
   
-  // Deteksi jika format iklan berupa video webm/mp4
   const isVideo = ad.url.match(/\.(webm|mp4)$/i);
   
   return (
@@ -16,27 +13,14 @@ const AdSlot = ({ ad }) => {
       href={ad.link} 
       target="_blank" 
       rel="noopener noreferrer" 
-      // Hapus tinggi fix, biarkan menyesuaikan proporsi asli
       className="block w-full relative group rounded-xl overflow-hidden border border-white/10 hover:border-[#00f0ff] hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all duration-300"
     >
       {isVideo ? (
-        <video 
-          autoPlay 
-          loop 
-          muted 
-          playsInline 
-          // Ubah ke h-auto agar tidak crop
-          className="w-full h-auto block"
-        >
+        <video autoPlay loop muted playsInline className="w-full h-auto block">
           <source src={ad.url} />
         </video>
       ) : (
-        <img 
-          src={ad.url} 
-          alt="Ads Banner" 
-          // Ubah ke h-auto agar tidak crop
-          className="w-full h-auto block" 
-        />
+        <img src={ad.url} alt="Ads Banner" className="w-full h-auto block" />
       )}
     </a>
   );
@@ -59,20 +43,39 @@ function HomeContent() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
 
-  // --- LOGIKA ROTASI IKLAN ---
+  // --- STATE & LOGIKA IKLAN DINAMIS ---
+  const [adsData, setAdsData] = useState([]);
   const [adIndex, setAdIndex] = useState(0);
+
+  // 1. Ambil data iklan dari API
   useEffect(() => {
-    if (!adsData || adsData.length <= 4) return; 
+    async function fetchAds() {
+      try {
+        const res = await fetch('/api/ads');
+        const data = await res.json();
+        setAdsData(data);
+      } catch (error) {
+        console.error("Gagal memuat ads:", error);
+      }
+    }
+    fetchAds();
+  }, []);
+
+  // 2. Rotasi iklan setiap 4 detik (hanya jika iklan sudah ada)
+  useEffect(() => {
+    if (!adsData || adsData.length === 0) return;
     const interval = setInterval(() => {
       setAdIndex((prev) => (prev + 1) % adsData.length);
     }, 4000); 
     return () => clearInterval(interval);
-  }, []);
+  }, [adsData]);
 
+  // 3. Siapkan 4 slot iklan untuk ditampilkan
   const activeAds = adsData && adsData.length > 0
     ? Array.from({ length: 4 }).map((_, i) => adsData[(adIndex + i) % adsData.length])
     : [null, null, null, null];
 
+  // --- LOGIKA AMBIL VIDEO ---
   useEffect(() => {
     async function fetchVideosFromDB() {
       try {
